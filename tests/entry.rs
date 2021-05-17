@@ -62,12 +62,22 @@ fn absolute_hardlink() {
     header.set_cksum();
     t!(ar.append(&header, &[][..]));
 
+    let mut header = tar::Header::new_gnu();
+    header.set_size(0);
+    header.set_entry_type(tar::EntryType::Link);
+    t!(header.set_path("baz"));
+    // This absolute path on root will be converted when unpacking
+    t!(header.set_link_name("/foo"));
+    header.set_cksum();
+    t!(ar.append(&header, &[][..]));
+
     let bytes = t!(ar.into_inner());
     let mut ar = tar::Archive::new(&bytes[..]);
 
     t!(ar.unpack(td.path()));
     t!(td.path().join("foo").metadata());
     t!(td.path().join("bar").metadata());
+    t!(td.path().join("baz").metadata());
 }
 
 #[test]

@@ -467,6 +467,9 @@ impl<'a> EntryFields<'a> {
                     // the destination of this hard link is both present and
                     // inside our own directory. This is needed because we want
                     // to make sure to not overwrite anything outside the root.
+                    // If the link points to an absolute path, assume it's relative
+                    // to the target dir by removing the leading '/', as we already
+                    // do for files, see unpack_in() comments.
                     //
                     // Note that this logic is only needed for hard links
                     // currently. With symlinks the `validate_inside_dst` which
@@ -475,6 +478,16 @@ impl<'a> EntryFields<'a> {
                     // links though they're canonicalized to their existing path
                     // so we need to validate at this time.
                     Some(ref p) => {
+                        let mut src = src.to_path_buf();
+                        if src.is_absolute() {
+                            let dest_canon = p.canonicalize()?;
+                            if !src.starts_with(&dest_canon) {
+                                // Skip root component, making the target relative to the target dir
+                                let components = src.components().skip(1);
+                                src = components.collect();
+                            }
+                        }
+
                         let link_src = p.join(src);
                         self.validate_inside_dst(p, &link_src)?;
                         link_src
