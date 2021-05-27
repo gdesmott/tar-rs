@@ -44,6 +44,10 @@ fn absolute_symlink() {
 #[test]
 fn absolute_hardlink() {
     let td = t!(Builder::new().prefix("tar").tempdir());
+    // on macos the tempdir is created in /var/folders/ which is actually
+    // /private/var/folders/. Canonicalize the path so the link target has
+    // the proper base.
+    let td_canon = td.path().canonicalize().unwrap();
     let mut ar = tar::Builder::new(Vec::new());
 
     let mut header = tar::Header::new_gnu();
@@ -58,7 +62,7 @@ fn absolute_hardlink() {
     header.set_entry_type(tar::EntryType::Link);
     t!(header.set_path("bar"));
     // This absolute path under tempdir will be created at unpack time
-    t!(header.set_link_name(td.path().join("foo")));
+    t!(header.set_link_name(td_canon.join("foo")));
     header.set_cksum();
     t!(ar.append(&header, &[][..]));
 
@@ -74,7 +78,7 @@ fn absolute_hardlink() {
     let bytes = t!(ar.into_inner());
     let mut ar = tar::Archive::new(&bytes[..]);
 
-    t!(ar.unpack(td.path()));
+    t!(ar.unpack(&td_canon));
     t!(td.path().join("foo").metadata());
     t!(td.path().join("bar").metadata());
     t!(td.path().join("baz").metadata());
